@@ -1,0 +1,7 @@
+botocore
+bedrock-agentcore
+strands-agents
+strands-agents[otel]
+strands-agents-tools[rss]
+aws-opentelemetry-distro
+mcp

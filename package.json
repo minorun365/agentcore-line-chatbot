@@ -1,0 +1,24 @@
+{
+  "name": "agentcore-line-chatbot",
+  "version": "0.1.0",
+  "bin": {
+    "agentcore-line-chatbot": "bin/agentcore-line-chatbot.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "cdk": "cdk"
+  },
+  "dependencies": {
+    "aws-cdk-lib": "^2.237.0",
+    "constructs": "^10.0.0",
+    "@aws-cdk/aws-bedrock-agentcore-alpha": "^2.237.0-alpha.0",
+    "dotenv": "^16.0.0",
+    "source-map-support": "^0.5.21"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "typescript": "~5.7.0",
+    "ts-node": "^10.9.0",
+    "aws-cdk": "^2.237.0"
+  }
+}
