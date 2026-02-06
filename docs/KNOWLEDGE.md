@@ -148,12 +148,13 @@ Lambda（webhook.py）は LINE 固有の処理（署名検証、Push Message 送
 - LINE SDK の依存を Lambda 側に閉じ込められる
 - Agent のテスト・開発が LINE 環境なしで可能
 
-### SSE → Push Message 変換方式
+### SSE → Push Message 変換方式（最終ブロックのみ送信）
 
-AI の回答は小さなチャンク（1〜数文字）で届く。現在の方式:
+AI の回答は小さなチャンク（1〜数文字）で届く。月間メッセージ上限を節約するため、テキストは最終ブロックのみ送信する方式を採用:
 - `contentBlockDelta` でテキストをバッファに蓄積
-- `contentBlockStop` でバッファを flush → Push Message 送信
-- ツール開始時もバッファを flush してからステータスメッセージを送信
+- `contentBlockStop` でバッファを `last_text_block` に保持（送信しない）
+- ツール開始時はバッファを破棄してステータスメッセージをリアルタイム送信
+- `[DONE]` で `last_text_block`（最終ブロック）のみ 1 通の Push Message で送信
 - 送信間隔は最低 1 秒（`throttled_send`）で 429 エラーを防止
 
 ### ツール使用時のステータスメッセージ
