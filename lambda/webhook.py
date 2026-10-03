@@ -11,6 +11,7 @@ from linebot.v3.messaging import (
     Configuration,
     MessagingApi,
     PushMessageRequest,
+    ReplyMessageRequest,
     ShowLoadingAnimationRequest,
     TextMessage,
 )
@@ -22,6 +23,8 @@ logger.setLevel(logging.INFO)
 LINE_CHANNEL_SECRET = os.environ["LINE_CHANNEL_SECRET"]
 LINE_CHANNEL_ACCESS_TOKEN = os.environ["LINE_CHANNEL_ACCESS_TOKEN"]
 AGENTCORE_RUNTIME_ARN = os.environ["AGENTCORE_RUNTIME_ARN"]
+# 障害対応中に入れる。値があればエージェントを呼ばず、この文面だけを返す（空なら通常動作）
+MAINTENANCE_MESSAGE = os.environ.get("MAINTENANCE_MESSAGE", "").strip()
 
 parser = WebhookParser(LINE_CHANNEL_SECRET)
 line_config = Configuration(access_token=LINE_CHANNEL_ACCESS_TOKEN)
@@ -63,6 +66,23 @@ def send_push_message(reply_to: str, text: str) -> None:
                 messages=[TextMessage(text=text.strip())],
             )
         )
+
+
+def send_maintenance_reply(reply_token: str | None, reply_to: str) -> None:
+    """障害対応中の案内を返す。応答メッセージ（通数にカウントされない）で送り、失敗したらPush"""
+    if reply_token:
+        try:
+            with ApiClient(line_config) as api_client:
+                MessagingApi(api_client).reply_message(
+                    ReplyMessageRequest(
+                        reply_token=reply_token,
+                        messages=[TextMessage(text=MAINTENANCE_MESSAGE)],
+                    )
+                )
+            return
+        except Exception as e:
+            logger.warning(f"Maintenance reply failed, falling back to push: {e}")
+    send_push_message(reply_to, MAINTENANCE_MESSAGE)
 
 
 def process_sse_stream(reply_to: str, response) -> None:
@@ -233,6 +253,10 @@ def handler(event, context):
         logger.info(f"User {source.user_id} (reply_to={reply_to}): {user_message}")
 
         if not user_message:
+            continue
+
+        if MAINTENANCE_MESSAGE:
+            send_maintenance_reply(line_event.reply_token, reply_to)
             continue
 
         # ローディング表示（1対1チャットのみ、通数節約のためテキスト送信はしない）

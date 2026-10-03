@@ -1,1 +1,1 @@
-line-bot-sdk
+line-bot-sdk==3.22.0

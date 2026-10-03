@@ -1,8 +1,11 @@
 import json
 import logging
 import os
+import time
+import urllib.error
 import urllib.request
 
+import boto3
 from bedrock_agentcore import BedrockAgentCoreApp
 from mcp.client.streamable_http import streamablehttp_client
 from strands import Agent, tool
@@ -34,6 +37,59 @@ def clear_memory() -> str:
     return "会話の記憶をクリアしました。"
 
 
+# Tavily APIキーは Secrets Manager にカンマ区切りで複数置き、上限に当たったら次のキーへ切り替える。
+# キーの追加・入れ替えは put-secret-value だけでよい（再デプロイ不要。5分以内に読み直す）
+TAVILY_SECRET_ARN = os.environ.get("TAVILY_SECRET_ARN", "")
+_TAVILY_KEYS_TTL = 300
+# 次のキーへ切り替えるステータス（401/403: キー無効、429: レート制限、432/433: クレジット上限）
+_TAVILY_ROTATE_STATUSES = {401, 403, 429, 432, 433}
+_tavily_keys: list[str] = []
+_tavily_keys_loaded_at = 0.0
+_tavily_key_index = 0
+
+
+def _load_tavily_keys() -> list[str]:
+    """Secrets Manager からキー一覧を読む（TTL付きキャッシュ）。読めなければ環境変数の単体キーを使う"""
+    global _tavily_keys, _tavily_keys_loaded_at, _tavily_key_index
+    if _tavily_keys and time.time() - _tavily_keys_loaded_at < _TAVILY_KEYS_TTL:
+        return _tavily_keys
+    keys: list[str] = []
+    if TAVILY_SECRET_ARN:
+        try:
+            secret = boto3.client("secretsmanager").get_secret_value(SecretId=TAVILY_SECRET_ARN)
+            raw = secret.get("SecretString", "").replace("\n", ",")
+            keys = [k.strip() for k in raw.split(",") if k.strip().startswith("tvly-")]
+        except Exception as e:
+            logger.warning(f"Failed to load Tavily keys from Secrets Manager: {e}")
+    if not keys and TAVILY_API_KEY:
+        keys = [TAVILY_API_KEY]
+    if keys != _tavily_keys:
+        _tavily_key_index = 0
+    _tavily_keys = keys
+    _tavily_keys_loaded_at = time.time()
+    logger.info(f"Tavily keys loaded: {len(keys)}")
+    return keys
+
+
+def _tavily_search(api_key: str, query: str) -> dict:
+    req = urllib.request.Request(
+        "https://api.tavily.com/search",
+        data=json.dumps({
+            "query": query,
+            "max_results": 5,
+            "search_depth": "basic",
+            "include_answer": True,
+        }).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    with urllib.request.urlopen(req, timeout=30) as resp:
+        return json.loads(resp.read().decode("utf-8"))
+
+
 @tool
 def web_search(query: str) -> str:
     """一般的なウェブ検索を行います。ニュース、技術情報、一般知識の検索に使います。
@@ -45,23 +101,26 @@ def web_search(query: str) -> str:
     Returns:
         検索結果のテキスト
     """
-    req = urllib.request.Request(
-        "https://api.tavily.com/search",
-        data=json.dumps({
-            "query": query,
-            "max_results": 5,
-            "search_depth": "basic",
-            "include_answer": True,
-        }).encode("utf-8"),
-        headers={
-            "Authorization": f"Bearer {TAVILY_API_KEY}",
-            "Content-Type": "application/json",
-        },
-        method="POST",
-    )
-
-    with urllib.request.urlopen(req, timeout=30) as resp:
-        result = json.loads(resp.read().decode("utf-8"))
+    global _tavily_key_index
+    keys = _load_tavily_keys()
+    result = None
+    # 前回成功したキーから順に試し、上限系のエラーなら次のキーへ回す
+    for attempt in range(len(keys)):
+        idx = (_tavily_key_index + attempt) % len(keys)
+        try:
+            result = _tavily_search(keys[idx], query)
+            _tavily_key_index = idx
+            break
+        except urllib.error.HTTPError as e:
+            logger.warning(f"Tavily key #{idx + 1}/{len(keys)} failed: HTTP {e.code}")
+            if e.code not in _TAVILY_ROTATE_STATUSES:
+                break
+        except Exception as e:
+            logger.warning(f"Tavily key #{idx + 1}/{len(keys)} failed: {e}")
+            break
+    if result is None:
+        logger.error("All Tavily keys failed")
+        return "ウェブ検索が一時的に使えません。検索せずに分かる範囲で回答し、最新情報は確認できなかったと伝えてください。"
 
     parts = []
 

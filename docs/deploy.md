@@ -65,7 +65,7 @@ AgentCore Runtime はセッション ID ごとにコンテナをルーティン�
 ```bash
 aws bedrock-agentcore stop-runtime-session \
   --runtime-session-id "セッションID" \
-  --agent-runtime-arn "arn:aws:bedrock-agentcore:us-east-1:715841358122:runtime/agentcore_line_chatbot" \
+  --agent-runtime-arn "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/agentcore_line_chatbot" \
   --qualifier DEFAULT \
   --region us-east-1 \
   --profile sandbox
@@ -125,7 +125,7 @@ npx cdk deploy --hotswap --profile sandbox
 # 4. 既存コンテナセッションを停止（即時反映したい場合）
 aws bedrock-agentcore stop-runtime-session \
   --runtime-session-id "セッションID" \
-  --agent-runtime-arn "arn:aws:bedrock-agentcore:us-east-1:715841358122:runtime/agentcore_line_chatbot" \
+  --agent-runtime-arn "arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/agentcore_line_chatbot" \
   --qualifier DEFAULT \
   --region us-east-1 \
   --profile sandbox

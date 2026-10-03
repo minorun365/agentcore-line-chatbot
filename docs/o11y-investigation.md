@@ -7,7 +7,7 @@
 
 ## 環境情報
 
-- AWSアカウント: 715841358122
+- AWSアカウント: 123456789012
 - リージョン: us-east-1
 - Runtime名: `agentcore_line_chatbot`
 - Runtime ID: `agentcore_line_chatbot-gcJwjw6ZSB`

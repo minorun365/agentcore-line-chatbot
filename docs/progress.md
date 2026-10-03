@@ -4,9 +4,9 @@
 
 ### デプロイ済み（2025-02-07）
 - CloudFormation スタック `AgentcoreLineChatbotStack` が us-east-1 にデプロイ済み
-- AWS プロファイル: `sandbox`（個人 Org アカウント `715841358122`）
+- AWS プロファイル: `sandbox`（個人 Org アカウント `123456789012`）
 - Webhook URL: `https://jj67ivglg1.execute-api.us-east-1.amazonaws.com/prod/webhook`
-- AgentCore Runtime ARN: `arn:aws:bedrock-agentcore:us-east-1:715841358122:runtime/agentcore_line_chatbot-gcJwjw6ZSB`
+- AgentCore Runtime ARN: `arn:aws:bedrock-agentcore:us-east-1:123456789012:runtime/agentcore_line_chatbot-gcJwjw6ZSB`
 - LINE Developers コンソールに Webhook URL 設定済み
 - 基本機能（Claude Sonnet 4.5 + Tavily ウェブ検索）が動作する状態
 

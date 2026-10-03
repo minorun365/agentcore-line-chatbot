@@ -3,6 +3,7 @@ import * as cdk from "aws-cdk-lib";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
+import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as agentcore from "@aws-cdk/aws-bedrock-agentcore-alpha";
 import { Construct } from "constructs";
 
@@ -13,6 +14,13 @@ export class AgentcoreLineChatbotStack extends cdk.Stack {
     // ========================================
     // AgentCore Runtime
     // ========================================
+    // Tavily APIキー（カンマ区切りで複数可。上限に当たると次のキーへ切り替わる）。
+    // 値はデプロイ後に put-secret-value で入れる。テンプレートにキーを書かないため CDK では空で作る
+    const tavilySecret = new secretsmanager.Secret(this, "TavilyApiKeys", {
+      secretName: "agentcore-line-chatbot/tavily-api-keys",
+      description: "Tavily API keys for agentcore-line-chatbot (comma separated)",
+    });
+
     const runtime = new agentcore.Runtime(this, "ChatbotAgentRuntime", {
       runtimeName: "agentcore_line_chatbot",
       agentRuntimeArtifact: agentcore.AgentRuntimeArtifact.fromAsset(
@@ -21,6 +29,8 @@ export class AgentcoreLineChatbotStack extends cdk.Stack {
       networkConfiguration:
         agentcore.RuntimeNetworkConfiguration.usingPublicNetwork(),
       environmentVariables: {
+        TAVILY_SECRET_ARN: tavilySecret.secretArn,
+        // シークレットが読めないときの予備（従来の単体キー）
         TAVILY_API_KEY: process.env.TAVILY_API_KEY || "",
         AGENT_OBSERVABILITY_ENABLED: "true",
         OTEL_PYTHON_DISTRO: "aws_distro",
@@ -28,6 +38,8 @@ export class AgentcoreLineChatbotStack extends cdk.Stack {
         OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
       },
     });
+
+    tavilySecret.grantRead(runtime);
 
     // Bedrock モデル呼び出し権限
     runtime.addToRolePolicy(
@@ -68,6 +80,8 @@ export class AgentcoreLineChatbotStack extends cdk.Stack {
         LINE_CHANNEL_ACCESS_TOKEN:
           process.env.LINE_CHANNEL_ACCESS_TOKEN || "",
         AGENTCORE_RUNTIME_ARN: runtime.agentRuntimeArn,
+        // 障害対応中の案内文。入れるとエージェントを呼ばずにこの文面だけを返す
+        MAINTENANCE_MESSAGE: process.env.MAINTENANCE_MESSAGE || "",
       },
     });
 
