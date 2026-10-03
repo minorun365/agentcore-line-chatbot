@@ -96,6 +96,14 @@ npx cdk deploy --hotswap --profile your-profile    # エージェントのみ高
 npx cdk diff --profile your-profile                # 差分確認
 ```
 
+### デプロイ後の本番検査
+
+デプロイ成功や Runtime の READY 表示だけでは、コンテナが起動できない状態や呼び出しが拒否される状態を検出できません。デプロイのたびに次を実行し、構成（READY・MMDSv2・Tavily シークレット）と、エージェントが実際にウェブ検索つきで回答するところまでを確かめます。
+
+```bash
+AWS_PROFILE=your-profile scripts/verify-prod.sh
+```
+
 ### Tavily API キーの追加・入れ替え
 
 キーは Secrets Manager の `agentcore-line-chatbot/tavily-api-keys` にカンマ区切りで置きます。上限（HTTP 429 / 432 など）に当たると次のキーへ自動で切り替わり、全部尽きた場合は検索なしで回答を続けます。値を入れ替えれば 5 分以内に反映され、再デプロイは不要です。
