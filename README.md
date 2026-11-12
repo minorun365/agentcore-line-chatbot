@@ -1,11 +1,6 @@
 # AgentCore LINE Chatbot
 
-LINE で動く AI チャットボットを、AWS Bedrock AgentCore + Strands Agents でサーバーレスに構築するサンプルです。
-
-## 概要
-
-LINE にメッセージを送ると、AI エージェントがウェブ検索や AWS ドキュメント検索などのツールを駆使して回答してくれます。
-ツール実行中の途中経過もリアルタイムに吹き出し表示されるので、待ち時間のストレスがありません。
+LINE で動く AI チャットボットを、AWS Bedrock AgentCore + Strands Agents でサーバーレスに構築するサンプルです。LINE にメッセージを送ると、エージェントがウェブ検索や AWS ドキュメント検索などのツールを使って回答し、ツールを実行している間はその途中経過を吹き出しで返します。
 
 <img src="docs/images/sample1.jpg" width="300"> <img src="docs/images/sample2.jpg" width="300">
 
@@ -20,15 +15,11 @@ LINE にメッセージを送ると、AI エージェントがウェブ検索や
 | Agent | Strands Agents on Bedrock AgentCore Runtime |
 | LLM | Claude Sonnet 4.5 on Amazon Bedrock |
 
-## 機能
+## 主な機能
 
-- Tavily API を使ったウェブ検索（ニュース、技術情報、一般知識など）
-- AWS Knowledge MCP Server によるAWSドキュメント検索・閲覧
-- AWS What's New の RSS フィード取得
-- SSE ストリーミングによるリアルタイム応答（ツール実行状況を LINE に通知、最終回答を 1 通で送信）
-- 1対1チャット / グループチャット（メンション起動）の両対応
-- 会話履歴の保持（セッション管理、15分 TTL）
-- OpenTelemetry による可観測性
+エージェントは Tavily でのウェブ検索、AWS Knowledge MCP Server でのAWSドキュメントの検索と閲覧、AWS What's New の RSS 取得ができます。応答は SSE でストリーミングし、ツールの実行状況を LINE へ知らせたうえで、最終回答を1通にまとめて送ります。
+
+1対1のチャットに加え、グループではメンションされたときに応答します。会話の履歴は15分間保持され、動作は OpenTelemetry で観測できます。
 
 ### エージェントのツール一覧
 
