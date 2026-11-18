@@ -61,6 +61,6 @@ for _ in range(12):
         break
     time.sleep(5)
 if not found or any("failed" in m for m in found):
-    sys.exit("NG: ウェブ検索（AgentCore Web Search）が失敗した: " + (found[-1][-200:] if found else "ログが無い"))
+    sys.exit("NG: ウェブ検索（Brave）が失敗した: " + (found[-1][-200:] if found else "ログが無い"))
 print("OK: 経路（エージェント起動・ウェブ検索・回答）")
 PY

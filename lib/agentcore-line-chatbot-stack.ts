@@ -25,16 +25,28 @@ export class AgentcoreLineChatbotStack extends cdk.Stack {
         OTEL_PYTHON_DISTRO: "aws_distro",
         OTEL_PYTHON_CONFIGURATOR: "aws_configurator",
         OTEL_EXPORTER_OTLP_PROTOCOL: "http/protobuf",
+        // Brave のキーを保管庫から読むためのワークロード ID（README の手順で作る）
+        BRAVE_WORKLOAD: "agentcore-line-chatbot",
       },
     });
 
-    // Web検索（AgentCore Web Search）の権限
-    runtime.addToRolePolicy(
-      new iam.PolicyStatement({
-        actions: ["bedrock-agentcore:InvokeWebSearch"],
-        resources: [`arn:${this.partition}:bedrock-agentcore:${this.region}:aws:tool/web-search.v1`],
-      })
-    );
+    // Web検索は Brave（AWS Marketplace の従量課金）。キーは AgentCore Identity の API キー保管庫 brave から読む
+    const vault = `arn:${this.partition}:bedrock-agentcore:${this.region}:${this.account}:token-vault/default`;
+    runtime.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock-agentcore:GetResourceApiKey'],
+      resources: [vault, `${vault}/apikeycredentialprovider/brave`,
+        `arn:${this.partition}:bedrock-agentcore:${this.region}:${this.account}:workload-identity-directory/default`,
+        `arn:${this.partition}:bedrock-agentcore:${this.region}:${this.account}:workload-identity-directory/default/workload-identity/*`],
+    }));
+    runtime.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['bedrock-agentcore:GetWorkloadAccessToken'],
+      resources: [`arn:${this.partition}:bedrock-agentcore:${this.region}:${this.account}:workload-identity-directory/default`,
+        `arn:${this.partition}:bedrock-agentcore:${this.region}:${this.account}:workload-identity-directory/default/workload-identity/agentcore-line-chatbot`],
+    }));
+    runtime.addToRolePolicy(new iam.PolicyStatement({
+      actions: ['secretsmanager:GetSecretValue'],
+      resources: [`arn:${this.partition}:secretsmanager:${this.region}:${this.account}:secret:bedrock-agentcore-identity!default/apikey/brave-*`],
+    }));
 
     // Bedrock モデル呼び出し権限
     runtime.addToRolePolicy(

@@ -1,12 +1,13 @@
 import logging
 
-import boto3
 from bedrock_agentcore import BedrockAgentCoreApp
 from mcp.client.streamable_http import streamablehttp_client
 from strands import Agent, tool
 from strands.models import BedrockModel
 from strands.tools.mcp import MCPClient
 from strands_tools import current_time, rss
+
+import brave
 
 logger = logging.getLogger(__name__)
 logger.setLevel(logging.INFO)
@@ -31,10 +32,6 @@ def clear_memory() -> str:
     return "会話の記憶をクリアしました。"
 
 
-# Web検索は AgentCore Web Search（AWS が用意する検索 API。リソースを作らず IAM だけで呼べる）
-_web_search_client = boto3.client("bedrock-agentcore")
-
-
 @tool
 def web_search(query: str) -> str:
     """一般的なウェブ検索を行います。ニュース、技術情報、一般知識の検索に使います。
@@ -47,9 +44,7 @@ def web_search(query: str) -> str:
         検索結果のテキスト
     """
     try:
-        results = _web_search_client.invoke_web_search(
-            webSearchId="web-search.v1", searchQuery=query, maxResults=5
-        ).get("results", [])
+        results = brave.search(query, count=5)
     except Exception as e:
         logger.error(f"Web search failed: {e}")
         return "ウェブ検索が一時的に使えません。検索せずに分かる範囲で回答し、最新情報は確認できなかったと伝えてください。"
@@ -57,9 +52,8 @@ def web_search(query: str) -> str:
 
     parts = []
     for item in results:
-        published = item.get("publishedAt")
-        date = f"（{published:%Y-%m-%d}）" if published else ""
-        parts.append(f"■ {item.get('title') or ''}{date}\n{item.get('url', '')}\n{(item.get('text') or '')[:500]}")
+        date = f"（{item['age']}）" if item.get("age") else ""
+        parts.append(f"■ {item.get('title') or ''}{date}\n{item.get('url', '')}\n{item['text'][:500]}")
 
     return "\n\n".join(parts) if parts else "検索結果が見つかりませんでした。"
 
@@ -137,6 +131,7 @@ async def invoke_agent(payload, context):
     prompt = payload.get("prompt", "")
     session_id = payload.get("session_id")
     _current_session_id = session_id
+    brave.prime()  # 保管庫から Brave のキーを読むには、呼び出しの文脈にある workload token が要る
 
     agent = _get_or_create_agent(session_id)
 

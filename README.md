@@ -17,7 +17,7 @@ LINE で動く AI チャットボットを、AWS Bedrock AgentCore + Strands Age
 
 ## 主な機能
 
-エージェントは [AgentCore Web Search](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/web-search-api.html)（AWS が用意するウェブ検索。APIキー不要）でのウェブ検索、AWS Knowledge MCP Server でのAWSドキュメントの検索と閲覧、AWS What's New の RSS 取得ができます。応答は SSE でストリーミングし、ツールの実行状況を LINE へ知らせたうえで、最終回答を1通にまとめて送ります。
+エージェントは [Brave Search API](https://brave.com/search/api/) でのウェブ検索、AWS Knowledge MCP Server でのAWSドキュメントの検索と閲覧、AWS What's New の RSS 取得ができます。応答は SSE でストリーミングし、ツールの実行状況を LINE へ知らせたうえで、最終回答を1通にまとめて送ります。
 
 1対1のチャットに加え、グループではメンションされたときに応答します。会話の履歴は15分間保持され、動作は OpenTelemetry で観測できます。
 
@@ -25,7 +25,7 @@ LINE で動く AI チャットボットを、AWS Bedrock AgentCore + Strands Age
 
 | ツール | 説明 |
 |-------|------|
-| `web_search` | AgentCore Web Search によるウェブ検索 |
+| `web_search` | Brave Search API によるウェブ検索 |
 | `current_time` | 現在の UTC 時刻を取得 |
 | `rss` | RSS フィード取得（AWS What's New など） |
 | `clear_memory` | 会話の記憶・履歴をクリア |
@@ -59,6 +59,13 @@ cp .env.example .env.local
 |--------|------|--------|
 | `LINE_CHANNEL_SECRET` | LINE チャネルシークレット | LINE Developers コンソール |
 | `LINE_CHANNEL_ACCESS_TOKEN` | LINE アクセストークン | LINE Developers コンソール |
+
+ウェブ検索に使う Brave Search API のキーは、`.env.local` ではなく AgentCore Identity に登録します。エージェントは実行時に、ワークロード ID `agentcore-line-chatbot` の身元で、`brave` という名前の API キー資格情報プロバイダからキーを読みます。
+
+```bash
+aws bedrock-agentcore-control create-api-key-credential-provider --region us-east-1 --name brave --api-key <Brave のAPIキー> --profile your-profile
+aws bedrock-agentcore-control create-workload-identity --region us-east-1 --name agentcore-line-chatbot --profile your-profile
+```
 
 ### 3. AWS へデプロイ
 
