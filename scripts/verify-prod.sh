@@ -13,14 +13,13 @@ ARN=$(aws lambda get-function-configuration --function-name "$FN" --query 'Envir
 RID=${ARN##*/}
 
 # 1. 構成の検査
-read -r STATUS MMDS SECRET <<<"$(aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$RID" \
-  --query '[status, metadataConfiguration.requireMMDSV2, environmentVariables.TAVILY_SECRET_ARN]' --output text)"
+read -r STATUS MMDS <<<"$(aws bedrock-agentcore-control get-agent-runtime --agent-runtime-id "$RID" \
+  --query '[status, metadataConfiguration.requireMMDSV2]' --output text)"
 [ "$STATUS" = READY ] || fail "Runtime status=$STATUS"
 [ "$MMDS" = True ] || fail "requireMMDSV2 が有効ではない（無効だと呼び出しが拒否される）"
-[ "$SECRET" != None ] || fail "TAVILY_SECRET_ARN が未設定"
 MAINT=$(aws lambda get-function-configuration --function-name "$FN" --query 'Environment.Variables.MAINTENANCE_MESSAGE' --output text)
 case "$MAINT" in ""|None) ;; *) echo "注意: 障害中メッセージが有効（エージェントは呼ばれない）: $MAINT" ;; esac
-echo "OK: 構成（READY / MMDSv2 / Tavilyシークレット）"
+echo "OK: 構成（READY / MMDSv2）"
 
 # 2. 経路の検査（エージェントを実際に呼び、ウェブ検索つきの回答が返るか）
 ARN="$ARN" uv run -q --with boto3 python - <<'PY'
@@ -51,7 +50,17 @@ for line in r["response"].iter_lines(chunk_size=64):
 print(f"{time.time() - t:.1f}s tools={tools}")
 if "web_search" not in tools or len(text.strip()) < 20:
     sys.exit("NG: ウェブ検索つきの回答が返らなかった")
-if "一時的に使えません" in text:
-    sys.exit("NG: Tavily キーがすべて使えない")
+# 検索の失敗はモデルが言い換えて答えるので、回答の文面では拾えない。エージェントのログで成否を見る
+logs = boto3.client("logs")
+group = "/aws/bedrock-agentcore/runtimes/" + os.environ["ARN"].split("/")[-1] + "-DEFAULT"
+found = []
+for _ in range(12):
+    found = [e["message"] for e in logs.filter_log_events(
+        logGroupName=group, startTime=int(t * 1000) - 5000, filterPattern='"Web search"')["events"]]
+    if found:
+        break
+    time.sleep(5)
+if not found or any("failed" in m for m in found):
+    sys.exit("NG: ウェブ検索（AgentCore Web Search）が失敗した: " + (found[-1][-200:] if found else "ログが無い"))
 print("OK: 経路（エージェント起動・ウェブ検索・回答）")
 PY

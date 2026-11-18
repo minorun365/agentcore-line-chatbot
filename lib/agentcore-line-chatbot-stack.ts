@@ -3,7 +3,6 @@ import * as cdk from "aws-cdk-lib";
 import * as apigateway from "aws-cdk-lib/aws-apigateway";
 import * as iam from "aws-cdk-lib/aws-iam";
 import * as lambda from "aws-cdk-lib/aws-lambda";
-import * as secretsmanager from "aws-cdk-lib/aws-secretsmanager";
 import * as agentcore from "@aws-cdk/aws-bedrock-agentcore-alpha";
 import { Construct } from "constructs";
 
@@ -14,13 +13,6 @@ export class AgentcoreLineChatbotStack extends cdk.Stack {
     // ========================================
     // AgentCore Runtime
     // ========================================
-    // Tavily APIキー（カンマ区切りで複数可。上限に当たると次のキーへ切り替わる）。
-    // 値はデプロイ後に put-secret-value で入れる。テンプレートにキーを書かないため CDK では空で作る
-    const tavilySecret = new secretsmanager.Secret(this, "TavilyApiKeys", {
-      secretName: "agentcore-line-chatbot/tavily-api-keys",
-      description: "Tavily API keys for agentcore-line-chatbot (comma separated)",
-    });
-
     const runtime = new agentcore.Runtime(this, "ChatbotAgentRuntime", {
       runtimeName: "agentcore_line_chatbot",
       agentRuntimeArtifact: agentcore.AgentRuntimeArtifact.fromAsset(
@@ -29,9 +21,6 @@ export class AgentcoreLineChatbotStack extends cdk.Stack {
       networkConfiguration:
         agentcore.RuntimeNetworkConfiguration.usingPublicNetwork(),
       environmentVariables: {
-        TAVILY_SECRET_ARN: tavilySecret.secretArn,
-        // シークレットが読めないときの予備（従来の単体キー）
-        TAVILY_API_KEY: process.env.TAVILY_API_KEY || "",
         AGENT_OBSERVABILITY_ENABLED: "true",
         OTEL_PYTHON_DISTRO: "aws_distro",
         OTEL_PYTHON_CONFIGURATOR: "aws_configurator",
@@ -39,7 +28,13 @@ export class AgentcoreLineChatbotStack extends cdk.Stack {
       },
     });
 
-    tavilySecret.grantRead(runtime);
+    // Web検索（AgentCore Web Search）の権限
+    runtime.addToRolePolicy(
+      new iam.PolicyStatement({
+        actions: ["bedrock-agentcore:InvokeWebSearch"],
+        resources: [`arn:${this.partition}:bedrock-agentcore:${this.region}:aws:tool/web-search.v1`],
+      })
+    );
 
     // Bedrock モデル呼び出し権限
     runtime.addToRolePolicy(

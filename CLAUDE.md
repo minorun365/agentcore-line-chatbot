@@ -4,14 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## プロジェクト概要
 LINE Messaging API + Bedrock AgentCore で動く汎用 AI チャットボット。
-Strands Agents でウェブ検索（Tavily API）やAWSドキュメント検索ツールを備えた対話型アシスタント。
+Strands Agents でウェブ検索（AgentCore Web Search）やAWSドキュメント検索ツールを備えた対話型アシスタント。
 
 ## 技術スタック
 - IaC: AWS CDK (TypeScript) + `@aws-cdk/aws-bedrock-agentcore-alpha` L2 コンストラクト
 - Webhook: API Gateway (REST) + Lambda (Python 3.13, ARM64)
 - Agent: Strands Agents on Bedrock AgentCore Runtime (Docker コンテナ)
 - LLM: Claude Sonnet 4.5 (`us.anthropic.claude-sonnet-4-5-20250929-v1:0`)
-- 検索: Tavily Search API、AWS Knowledge MCP Server
+- 検索: AgentCore Web Search（InvokeWebSearch API）、AWS Knowledge MCP Server
 - Observability: OpenTelemetry (AgentCore 標準)
 
 ## 開発コマンド
@@ -51,7 +51,7 @@ LINE User
 
 AgentCore Runtime (Docker コンテナ)
   → Strands Agent (セッション管理: reply_to を session_id に使用、15分 TTL)
-    → Tools: current_time, web_search(Tavily), rss, clear_memory, AWS Knowledge MCP Server
+    → Tools: current_time, web_search(AgentCore Web Search), rss, clear_memory, AWS Knowledge MCP Server
 ```
 
 **Lambda (`lambda/webhook.py`)** — LINE Webhook の受付と SSE→LINE 変換のブリッジ。LINE SDK でローディングアニメーション表示、Push Message 送信、グループチャット対応（メンション検出・除去）を担当。

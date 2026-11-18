@@ -17,7 +17,7 @@ LINE で動く AI チャットボットを、AWS Bedrock AgentCore + Strands Age
 
 ## 主な機能
 
-エージェントは Tavily でのウェブ検索、AWS Knowledge MCP Server でのAWSドキュメントの検索と閲覧、AWS What's New の RSS 取得ができます。応答は SSE でストリーミングし、ツールの実行状況を LINE へ知らせたうえで、最終回答を1通にまとめて送ります。
+エージェントは [AgentCore Web Search](https://docs.aws.amazon.com/bedrock-agentcore/latest/devguide/web-search-api.html)（AWS が用意するウェブ検索。APIキー不要）でのウェブ検索、AWS Knowledge MCP Server でのAWSドキュメントの検索と閲覧、AWS What's New の RSS 取得ができます。応答は SSE でストリーミングし、ツールの実行状況を LINE へ知らせたうえで、最終回答を1通にまとめて送ります。
 
 1対1のチャットに加え、グループではメンションされたときに応答します。会話の履歴は15分間保持され、動作は OpenTelemetry で観測できます。
 
@@ -25,7 +25,7 @@ LINE で動く AI チャットボットを、AWS Bedrock AgentCore + Strands Age
 
 | ツール | 説明 |
 |-------|------|
-| `web_search` | Tavily API によるウェブ検索 |
+| `web_search` | AgentCore Web Search によるウェブ検索 |
 | `current_time` | 現在の UTC 時刻を取得 |
 | `rss` | RSS フィード取得（AWS What's New など） |
 | `clear_memory` | 会話の記憶・履歴をクリア |
@@ -38,7 +38,6 @@ LINE で動く AI チャットボットを、AWS Bedrock AgentCore + Strands Age
 
 - AWS CLI（SSO 設定済み）、Node.js 18+、Docker
 - LINE Developers の Messaging API チャネル
-- [Tavily](https://tavily.com) の API キー
 
 ### 1. クローン & インストール
 
@@ -60,7 +59,6 @@ cp .env.example .env.local
 |--------|------|--------|
 | `LINE_CHANNEL_SECRET` | LINE チャネルシークレット | LINE Developers コンソール |
 | `LINE_CHANNEL_ACCESS_TOKEN` | LINE アクセストークン | LINE Developers コンソール |
-| `TAVILY_API_KEY` | Tavily API キー | Tavily ダッシュボード |
 
 ### 3. AWS へデプロイ
 
@@ -89,22 +87,11 @@ npx cdk diff --profile your-profile                # 差分確認
 
 ### デプロイ後の本番検査
 
-デプロイ成功や Runtime の READY 表示だけでは、コンテナが起動できない状態や呼び出しが拒否される状態を検出できません。デプロイのたびに次を実行し、構成（READY・MMDSv2・Tavily シークレット）と、エージェントが実際にウェブ検索つきで回答するところまでを確かめます。
+デプロイ成功や Runtime の READY 表示だけでは、コンテナが起動できない状態や呼び出しが拒否される状態を検出できません。デプロイのたびに次を実行し、構成（READY・MMDSv2）と、エージェントが実際にウェブ検索つきで回答するところまでを確かめます。
 
 ```bash
 AWS_PROFILE=your-profile scripts/verify-prod.sh
 ```
-
-### Tavily API キーの追加・入れ替え
-
-キーは Secrets Manager の `agentcore-line-chatbot/tavily-api-keys` にカンマ区切りで置きます。上限（HTTP 429 / 432 など）に当たると次のキーへ自動で切り替わり、全部尽きた場合は検索なしで回答を続けます。値を入れ替えれば 5 分以内に反映され、再デプロイは不要です。
-
-```bash
-aws secretsmanager put-secret-value --profile your-profile --region us-east-1 \
-  --secret-id agentcore-line-chatbot/tavily-api-keys --secret-string 'tvly-xxxxx,tvly-yyyyy'
-```
-
-シークレットが読めないときは、デプロイ時の環境変数 `TAVILY_API_KEY` を予備として使います。
 
 ### 障害対応中の案内メッセージ
 
